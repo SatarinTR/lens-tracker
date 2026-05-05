@@ -1,9 +1,7 @@
 import { Tabs } from 'expo-router';
 import React from 'react';
 
-import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
@@ -11,11 +9,10 @@ export default function TabLayout() {
 
   return (
     <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
-        headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+  screenOptions={{
+    headerShown: false, // Üstteki o gıcık beyaz barı yok eder
+    tabBarStyle: { display: 'none' }, // Alttaki menüyü tamamen gizler
+  }}>
       <Tabs.Screen
         name="index"
         options={{
