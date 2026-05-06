@@ -11,8 +11,8 @@ import {
   UIManager,
   View
 } from 'react-native';
+import OneSignal from 'react-onesignal';
 
-// Android'de animasyonun çalışması için gerekli ayar
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
@@ -29,14 +29,13 @@ Notifications.setNotificationHandler({
 
 export default function App() {
   const [lensTarihi, setLensTarihi] = useState<Date | null>(null);
-  const [simdi, setSimdi] = useState(new Date()); // Canlı zaman takibi
+  const [simdi, setSimdi] = useState(new Date()); 
   const lensOmru = 30;
 
   useEffect(() => {
     veriyiGetir();
     izinIste();
 
-    // Her saniye zamanı güncelle ve rakam değişirse animasyon patlat
     const interval = setInterval(() => {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setSimdi(new Date());
@@ -48,7 +47,7 @@ export default function App() {
   const izinIste = async () => {
     const { status } = await Notifications.requestPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('İzin Gerekli', 'Hatırlatıcı için bildirim izni vermen gerekiyor.');
+      // Alert.alert('İzin Gerekli', 'Hatırlatıcı için bildirim izni vermen gerekiyor.');
     }
   };
 
@@ -151,6 +150,20 @@ export default function App() {
         >
           <Text style={styles.buttonText}>Lensi Bugün Yeniledim</Text>
         </TouchableOpacity>
+
+        {/* YENİ EKLENEN BİLDİRİM BUTONU */}
+        <TouchableOpacity 
+          style={styles.secondaryButton} 
+          activeOpacity={0.7}
+          onPress={() => {
+            if (typeof window !== 'undefined') {
+              OneSignal.Slidedown.promptPush(); 
+            }
+          }}
+        >
+          <Text style={styles.secondaryButtonText}>🔔 Bildirim İzni Ver</Text>
+        </TouchableOpacity>
+
         <Text style={styles.note}>Zamanında değişim göz sağlığını korur.</Text>
       </View>
     </SafeAreaView>
@@ -241,6 +254,20 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#FFFFFF',
     fontSize: 16,
+    fontWeight: 'bold',
+  },
+  secondaryButton: {
+    marginTop: 15,
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#7C3AED',
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    color: '#7C3AED',
+    fontSize: 14,
     fontWeight: 'bold',
   },
   note: {
