@@ -1,15 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
 import React, { useEffect, useState } from 'react';
 import {
   Alert,
-  LayoutAnimation, Platform,
+  LayoutAnimation,
+  Platform,
   SafeAreaView,
   StatusBar,
-  StyleSheet, Text,
+  StyleSheet,
+  Text,
   TouchableOpacity,
   UIManager,
-  View
+  View,
 } from 'react-native';
 import OneSignal from 'react-onesignal';
 
@@ -17,24 +18,34 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
-
 export default function App() {
   const [lensTarihi, setLensTarihi] = useState<Date | null>(null);
-  const [simdi, setSimdi] = useState(new Date()); 
+  const [simdi, setSimdi] = useState(new Date());
+  const [izinDurumuMesaji, setIzinDurumuMesaji] = useState('');
+  const [izinIsteniyor, setIzinIsteniyor] = useState(false);
   const lensOmru = 30;
+
+  const bildirimIzinDurumunuKontrolEt = async () => {
+    if (typeof window === 'undefined') return;
+
+    // @ts-ignore
+    const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+    if (!isStandalone) {
+      setIzinDurumuMesaji('Durum: Bekleniyor ⏳');
+      return;
+    }
+
+    try {
+      const izinVar = await (OneSignal as any).isPushNotificationsEnabled();
+      setIzinDurumuMesaji(izinVar ? 'Durum: Izin Verildi ✅' : 'Durum: Bekleniyor ⏳');
+    } catch {
+      setIzinDurumuMesaji('Durum: Bekleniyor ⏳');
+    }
+  };
 
   useEffect(() => {
     veriyiGetir();
-    izinIste();
+    void bildirimIzinDurumunuKontrolEt();
 
     const interval = setInterval(() => {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -44,18 +55,14 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  const izinIste = async () => {
-    const { status } = await Notifications.requestPermissionsAsync();
-    if (status !== 'granted') {
-      // Alert.alert('İzin Gerekli', 'Hatırlatıcı için bildirim izni vermen gerekiyor.');
-    }
-  };
-
   const veriyiKaydet = async (tarih: Date) => {
     try {
       await AsyncStorage.setItem('@lens_tarihi', tarih.toISOString());
       setLensTarihi(tarih);
-      await bildirimKur();
+      
+      // İleride buraya OneSignal üzerinden 30 gün sonrası için "Etiket (Tag)" atama kodu ekleyeceğiz.
+      // Şimdilik sadece tarihi kaydediyoruz.
+      
       Alert.alert("Başarılı", "Yeni lens dönemi başlatıldı. ✅");
     } catch (e) {
       console.log("Hata");
@@ -69,20 +76,6 @@ export default function App() {
     } catch (e) {
       console.log("Hata");
     }
-  };
-
-  const bildirimKur = async () => {
-    await Notifications.cancelAllScheduledNotificationsAsync();
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title: "Lens Değişim Vakti! 👁️",
-        body: '30 günlük süren doldu, lütfen lenslerini yenile.',
-      },
-      trigger: { 
-        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-        seconds: 30 * 24 * 60 * 60,
-      },
-    });
   };
 
   const gostergeData = () => {
@@ -107,6 +100,27 @@ export default function App() {
   };
 
   const { gun, saat, dak, mesaj } = gostergeData();
+
+  const bildirimIzniIste = async () => {
+    if (typeof window === 'undefined') return;
+
+    // @ts-ignore
+    const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+    if (!isStandalone) {
+      setIzinDurumuMesaji('Durum: Bekleniyor ⏳');
+      return;
+    }
+
+    try {
+      setIzinIsteniyor(true);
+      await (OneSignal as any).Slidedown.promptPush();
+      await bildirimIzinDurumunuKontrolEt();
+    } catch {
+      setIzinDurumuMesaji('Durum: Bekleniyor ⏳');
+    } finally {
+      setIzinIsteniyor(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -151,19 +165,18 @@ export default function App() {
           <Text style={styles.buttonText}>Lensi Bugün Yeniledim</Text>
         </TouchableOpacity>
 
-        {/* YENİ EKLENEN BİLDİRİM BUTONU */}
         <TouchableOpacity 
           style={styles.secondaryButton} 
           activeOpacity={0.7}
-          onPress={() => {
-            if (typeof window !== 'undefined') {
-              OneSignal.Slidedown.promptPush(); 
-            }
-          }}
+          onPress={bildirimIzniIste}
+          disabled={izinIsteniyor}
         >
-          <Text style={styles.secondaryButtonText}>🔔 Bildirim İzni Ver</Text>
+          <Text style={styles.secondaryButtonText}>
+            {izinIsteniyor ? 'Bildirim izni isteniyor...' : 'Bildirim İzni Ver'}
+          </Text>
         </TouchableOpacity>
 
+        {!!izinDurumuMesaji && <Text style={styles.permissionNote}>{izinDurumuMesaji}</Text>}
         <Text style={styles.note}>Zamanında değişim göz sağlığını korur.</Text>
       </View>
     </SafeAreaView>
@@ -275,5 +288,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 20,
     fontSize: 11,
-  }
+  },
+  permissionNote: {
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginTop: 10,
+    fontSize: 11,
+  },
 });
