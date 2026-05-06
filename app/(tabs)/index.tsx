@@ -26,6 +26,25 @@ export default function App() {
   const lensOmru = 30;
 
   const bekle = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+  const pushIzinDurumuOku = () => {
+    const permission = (OneSignal as any)?.Notifications?.permission;
+    const optedIn = (OneSignal as any)?.User?.PushSubscription?.optedIn;
+    const subscriptionId = (OneSignal as any)?.User?.PushSubscription?.id;
+
+    if (permission === true || permission === 'granted' || optedIn === true) {
+      return { verildi: true, mesaj: 'Durum: Izin Verildi ✅' };
+    }
+
+    if (permission === false || permission === 'denied') {
+      return { verildi: false, mesaj: 'Durum: Engellendi 🚫 (Safari ayarlarindan ac)' };
+    }
+
+    if (subscriptionId && optedIn !== false) {
+      return { verildi: true, mesaj: 'Durum: Izin Verildi ✅' };
+    }
+
+    return { verildi: false, mesaj: 'Durum: Bekleniyor ⏳' };
+  };
 
   const bildirimIzinDurumunuKontrolEt = async () => {
     if (typeof window === 'undefined') return;
@@ -38,8 +57,8 @@ export default function App() {
     }
 
     try {
-      const izinVar = await (OneSignal as any).isPushNotificationsEnabled();
-      setIzinDurumuMesaji(izinVar ? 'Durum: Izin Verildi ✅' : 'Durum: Bekleniyor ⏳');
+      const { mesaj } = pushIzinDurumuOku();
+      setIzinDurumuMesaji(mesaj);
     } catch {
       setIzinDurumuMesaji('Durum: Bekleniyor ⏳');
     }
@@ -145,9 +164,9 @@ export default function App() {
       }
 
       await bekle(400);
-      const izinVar = await (OneSignal as any).isPushNotificationsEnabled();
+      const { verildi } = pushIzinDurumuOku();
 
-      if (izinVar) {
+      if (verildi) {
         setIzinDurumuMesaji('Durum: Izin Verildi ✅');
       } else {
         setIzinDurumuMesaji('Durum: Bekleniyor ⏳ (Safari panelini kontrol et)');
